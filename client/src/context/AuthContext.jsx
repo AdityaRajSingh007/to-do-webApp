@@ -1,6 +1,9 @@
+'use client';
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
 import { authSync } from '../services/api';
+import '@/src/config/firebase'; // Import Firebase config to initialize it
 
 const AuthContext = createContext();
 

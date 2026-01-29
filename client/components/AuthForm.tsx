@@ -9,10 +9,12 @@ import TerminalHeader from './TerminalHeader';
 import CyberpunkPanel from './CyberpunkPanel';
 import { Shield, Lock, Mail, Chrome } from 'lucide-react';
 import '@/src/config/firebase'; // Import Firebase config to initialize it
+import { useRouter } from 'next/navigation';
 
 type AuthMode = 'login' | 'signup';
 
 export default function AuthForm() {
+  const router = useRouter();
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,6 +53,9 @@ export default function AuthForm() {
           );
           setEmail('');
           setPassword('');
+          
+          // Redirect to dashboard after successful login
+          router.push('/dashboard');
         }
       } else {
         if (!email || !password || !confirmPassword) {
@@ -72,6 +77,9 @@ export default function AuthForm() {
           setPassword('');
           setConfirmPassword('');
           setMode('login');
+          
+          // Redirect to dashboard after successful signup
+          router.push('/dashboard');
         }
       }
     } catch (err: any) {
