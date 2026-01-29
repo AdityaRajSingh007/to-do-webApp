@@ -72,3 +72,4 @@ server/pm2.log
 client/.next/
 client/out/
 client/build/
+server/.env
