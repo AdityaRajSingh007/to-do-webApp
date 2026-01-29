@@ -8,6 +8,7 @@ import CyberpunkToggle from './CyberpunkToggle';
 import TerminalHeader from './TerminalHeader';
 import CyberpunkPanel from './CyberpunkPanel';
 import { Shield, Lock, Mail, Chrome } from 'lucide-react';
+import '@/src/config/firebase'; // Import Firebase config to initialize it
 
 type AuthMode = 'login' | 'signup';
 
@@ -26,36 +27,59 @@ export default function AuthForm() {
     setSuccess('');
     setIsLoading(true);
 
-    // Simulate authentication with delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
+    // In a real implementation, this would connect to Firebase
+    // For now, we'll simulate the authentication process
+    try {
+      // Import Firebase dynamically to avoid SSR issues
+      const { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } = await import('firebase/auth');
+      const { authSync } = await import('@/src/services/api');
+      const auth = getAuth();
 
-    if (mode === 'login') {
-      if (!email || !password) {
-        setError('ACCESS_DENIED: Missing credentials');
+      if (mode === 'login') {
+        if (!email || !password) {
+          setError('ACCESS_DENIED: Missing credentials');
+        } else {
+          // Attempt Firebase login
+          const userCredential = await signInWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
+          
+          // Sync with backend
+          await authSync();
+          
+          setSuccess(
+            `SESSION_INITIALIZED: Welcome back, ${email.split('@')[0]}`
+          );
+          setEmail('');
+          setPassword('');
+        }
       } else {
-        setSuccess(
-          `SESSION_INITIALIZED: Welcome back, ${email.split('@')[0]}`
-        );
-        setEmail('');
-        setPassword('');
+        if (!email || !password || !confirmPassword) {
+          setError('ACCESS_DENIED: Incomplete registration');
+        } else if (password !== confirmPassword) {
+          setError('ACCESS_DENIED: Password mismatch');
+        } else {
+          // Attempt Firebase signup
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          const user = userCredential.user;
+          
+          // Sync with backend
+          await authSync();
+          
+          setSuccess(
+            `NEW_PROTOCOL_ACTIVATED: Account created for ${email.split('@')[0]}`
+          );
+          setEmail('');
+          setPassword('');
+          setConfirmPassword('');
+          setMode('login');
+        }
       }
-    } else {
-      if (!email || !password || !confirmPassword) {
-        setError('ACCESS_DENIED: Incomplete registration');
-      } else if (password !== confirmPassword) {
-        setError('ACCESS_DENIED: Password mismatch');
-      } else {
-        setSuccess(
-          `NEW_PROTOCOL_ACTIVATED: Account created for ${email.split('@')[0]}`
-        );
-        setEmail('');
-        setPassword('');
-        setConfirmPassword('');
-        setMode('login');
-      }
+    } catch (err: any) {
+      console.error('Authentication error:', err);
+      setError(`Authentication failed: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsLoading(false);
     }
-
-    setIsLoading(false);
   };
 
   return (
