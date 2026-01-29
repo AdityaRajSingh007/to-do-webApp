@@ -1,0 +1,26 @@
+mongodb
+npm install mongodb
+
+mongodb+srv://adityashailendra477_db_user:Aa7878457246!@cluster0-to-do-webapp.ikuyctr.mongodb.net/?appName=Cluster0-to-do-webApp
+
+firebase
+npm install firebase
+
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyDD-e4B5fFxLt0Nm5P932oaKWvw1w64kyY",
+  authDomain: "to-do-webapp-1fe17.firebaseapp.com",
+  projectId: "to-do-webapp-1fe17",
+  storageBucket: "to-do-webapp-1fe17.firebasestorage.app",
+  messagingSenderId: "157581776000",
+  appId: "1:157581776000:web:c782925a1f2394ffde0265"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+
