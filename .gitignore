@@ -1,0 +1,74 @@
+# Dependencies
+/node_modules
+client/node_modules
+server/node_modules
+
+# Build outputs
+/dist
+/build
+/out
+.next
+.nuxt
+public/dist
+*.min.js
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage
+*.lcov
+
+# Temporary folders
+tmp
+temp
+.tm_history
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE files
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Testing
+coverage/
+.nyc_output/
+
+# Server-specific ignores
+server/logs
+server/*.log
+server/pm2.log
+
+# Client-specific ignores (already covered above but being explicit)
+client/.next/
+client/out/
+client/build/
