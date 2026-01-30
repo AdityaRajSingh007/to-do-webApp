@@ -21,7 +21,22 @@
   <strong>Transform your productivity with a sleek, futuristic Kanban board featuring drag-and-drop functionality, real-time collaboration, and immersive cyberpunk design.</strong>
 </p>
 
-## 🚀 Features
+## 🖼️ Screenshots
+
+<div align="center">
+
+<img src="screenshots/login.png" alt="Login Screen" width="400" style="margin: 10px;">
+<img src="screenshots/signup.png" alt="Signup Screen" width="400" style="margin: 10px;">
+
+<img src="screenshots/dashboard.png" alt="Dashboard View" width="400" style="margin: 10px;">
+<img src="screenshots/board.png" alt="Kanban Board" width="400" style="margin: 10px;">
+
+<img src="screenshots/new-board-form.png" alt="New Board Form" width="400" style="margin: 10px;">
+<img src="screenshots/task-details-update-panel.png" alt="Task Details Panel" width="400" style="margin: 10px;">
+
+</div>
+
+##  Features
 
 - **🔐 Secure Authentication**: Firebase-powered authentication system with JWT tokens
 - **📋 Kanban Board**: Intuitive drag-and-drop task management with customizable columns
