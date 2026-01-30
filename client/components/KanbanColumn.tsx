@@ -17,6 +17,7 @@ interface KanbanColumnProps {
   tasks: Task[];
   onAddTask: (columnId: string) => void;
   onTaskClick?: (taskId: string) => void;
+  isMobile?: boolean;
 }
 
 export default function KanbanColumn({
@@ -26,9 +27,10 @@ export default function KanbanColumn({
   tasks,
   onAddTask,
   onTaskClick,
+  isMobile = false,
 }: KanbanColumnProps) {
   return (
-    <div className={`flex flex-col w-80 bg-transparent border ${borderColor} border-dashed rounded-none`}>
+    <div className={`flex flex-col ${isMobile ? 'w-full min-w-full' : 'w-80'} bg-transparent border ${borderColor} border-dashed rounded-none`}>
       {/* Column Header */}
       <div className="flex items-center justify-between p-4 border-b border-dashed border-gray-600">
         <h2 className="font-mono text-sm font-bold text-gray-300">{title}</h2>
@@ -55,6 +57,7 @@ export default function KanbanColumn({
                 priority={task.priority}
                 index={index}
                 onClick={onTaskClick}
+                isMobile={isMobile}
               />
             ))}
             {provided.placeholder}

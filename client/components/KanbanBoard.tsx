@@ -1,13 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { DragDropContext, DropResult } from '@hello-pangea/dnd';
 import KanbanColumn from './KanbanColumn';
 import CreateTaskModal from './CreateTaskModal';
 import TaskDetailsModal from './TaskDetailsModal';
-import { Trash2, Plus } from 'lucide-react';
+import { Trash2, Plus, Menu } from 'lucide-react';
 import { fetchBoardDetails, moveTask, createTask, deleteBoard } from '@/src/services/api';
 import { useToast } from '@/hooks/use-toast';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface BoardTask {
   _id: string;
@@ -84,7 +85,11 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
   const [showTaskDetailsModal, setShowTaskDetailsModal] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedColumn, setSelectedColumn] = useState<string>('PENDING');
+  const [activeColumnIndex, setActiveColumnIndex] = useState(0);
+  const [draggedTask, setDraggedTask] = useState<{ taskId: string; source: { droppableId: string; index: number } } | null>(null);
   const { toast } = useToast();
+  const isMobile = useIsMobile();
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Helper function to map backend priority to frontend priority
   const mapPriority = (backendPriority: 'CRIT' | 'MED' | 'LOW'): 'HIGH' | 'MED' | 'LOW' => {
@@ -188,7 +193,16 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
   // Let's store backend tasks separately to access their properties like position
   const [backendTasks, setBackendTasks] = useState<Record<string, BoardTask>>({});
 
+  const handleDragStart = (result: any) => { // Using any for now to avoid complex typing
+    setDraggedTask({
+      taskId: result.draggableId,
+      source: result.source
+    });
+  };
+
   const handleDragEnd = async (result: DropResult) => {
+    setDraggedTask(null);
+    
     const { source, destination, draggableId } = result;
 
     if (!destination) return;
@@ -422,6 +436,30 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
     }
   };
 
+  // Handle swipe navigation for mobile
+  const handleScroll = (e: React.WheelEvent<HTMLDivElement>) => {
+    if (!isMobile) return;
+    
+    const container = e.currentTarget;
+    const { scrollLeft, scrollWidth, clientWidth } = container;
+    const scrollPercentage = scrollLeft / (scrollWidth - clientWidth);
+    const approxColumnIndex = Math.round(scrollPercentage * 2); // 3 columns total
+    
+    setActiveColumnIndex(Math.min(2, Math.max(0, approxColumnIndex)));
+  };
+
+  // Navigate to specific column on mobile
+  const goToColumn = (index: number) => {
+    if (!scrollContainerRef.current) return;
+    
+    const columnWidth = scrollContainerRef.current.clientWidth;
+    scrollContainerRef.current.scrollTo({
+      left: index * columnWidth,
+      behavior: 'smooth'
+    });
+    setActiveColumnIndex(index);
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col h-full bg-background">
@@ -466,6 +504,9 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
     );
   }
 
+  // Column titles for mobile indicator
+  const columnTitles = ['PENDING_EXECUTION', 'PROCESSING_NODE', 'COMPLETED_LOGS'];
+
   return (
     <div className="flex flex-col h-full bg-background">
       {/* Header */}
@@ -482,25 +523,76 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
         </button>
       </div>
 
+      {/* Mobile Column Indicators */}
+      {isMobile && (
+        <div className="flex justify-center items-center gap-4 py-3 bg-gray-900 border-b border-gray-700">
+          {columnTitles.map((title, index) => (
+            <button
+              key={index}
+              onClick={() => goToColumn(index)}
+              className={`px-3 py-1 text-xs font-mono ${
+                activeColumnIndex === index
+                  ? 'text-green-400 border-b-2 border-green-400'
+                  : 'text-gray-500 hover:text-gray-300'
+              }`}
+            >
+              {title.split('_')[0]}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Board Content */}
       <div className="flex-1 overflow-x-auto">
-        <DragDropContext onDragEnd={handleDragEnd}>
-          <div className="flex gap-6 p-6 min-w-max">
-            {Object.values(columns).map((column) => (
-              <KanbanColumn
-                key={column.id}
-                id={column.id}
-                title={column.title}
-                borderColor={column.borderColor}
-                tasks={column.tasks}
-                 onAddTask={(columnId: string) => {
-                   setSelectedColumn(columnId);
-                   setShowCreateTaskModal(true);
-                 }}
-                onTaskClick={handleTaskClick}
-              />
-            ))}
-          </div>
+        <DragDropContext onDragEnd={handleDragEnd} onDragStart={handleDragStart}>
+          {isMobile ? (
+            // Mobile view: Horizontal scroll with snap points
+            <div
+              ref={scrollContainerRef}
+              onWheel={handleScroll}
+              className="flex w-full h-full snap-x snap-mandatory overflow-x-auto scrollbar-hide"
+              style={{ scrollSnapType: 'x mandatory' }}
+            >
+              {Object.values(columns).map((column, index) => (
+                <div
+                  key={column.id}
+                  className="w-full min-w-full flex-shrink-0 snap-start"
+                >
+                  <KanbanColumn
+                    id={column.id}
+                    title={column.title}
+                    borderColor={column.borderColor}
+                    tasks={column.tasks}
+                    onAddTask={(columnId: string) => {
+                      setSelectedColumn(columnId);
+                      setShowCreateTaskModal(true);
+                    }}
+                    onTaskClick={handleTaskClick}
+                    isMobile={true}
+                  />
+                </div>
+              ))}
+            </div>
+          ) : (
+            // Desktop view: Regular flex layout
+            <div className="flex gap-6 p-6 min-w-max">
+              {Object.values(columns).map((column) => (
+                <KanbanColumn
+                  key={column.id}
+                  id={column.id}
+                  title={column.title}
+                  borderColor={column.borderColor}
+                  tasks={column.tasks}
+                  onAddTask={(columnId: string) => {
+                    setSelectedColumn(columnId);
+                    setShowCreateTaskModal(true);
+                  }}
+                  onTaskClick={handleTaskClick}
+                  isMobile={false}
+                />
+              ))}
+            </div>
+          )}
         </DragDropContext>
       </div>
 
