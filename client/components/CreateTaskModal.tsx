@@ -63,9 +63,9 @@ export default function CreateTaskModal({
     }
 
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-      onSubmit({
+    
+    try {
+      await onSubmit({
         title,
         priority,
         deadline,
@@ -73,9 +73,12 @@ export default function CreateTaskModal({
         subtasks,
       });
       resetForm();
-      setIsSubmitting(false);
       onClose();
-    }, 800);
+    } catch (error) {
+      console.error('Error creating task:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const resetForm = () => {

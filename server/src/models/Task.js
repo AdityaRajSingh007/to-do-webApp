@@ -26,6 +26,9 @@ const taskSchema = new mongoose.Schema({
     enum: ['LOW', 'MED', 'CRIT'],
     default: 'MED'
   },
+  deadline: {
+    type: Date
+  },
   position: {
     type: Number,
     required: true,
@@ -45,8 +48,17 @@ const taskSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Index for efficient querying by boardId and status
+// Composite index for efficient querying by boardId and status (most common query pattern)
 taskSchema.index({ boardId: 1, status: 1 });
+
+// Index for sorting by position within a board
 taskSchema.index({ boardId: 1, position: 1 });
+
+// Additional indexes for performance optimization
+taskSchema.index({ boardId: 1 }); // For basic board filtering
+taskSchema.index({ status: 1 }); // For status-based queries across boards
+taskSchema.index({ priority: 1 }); // For priority-based queries
+taskSchema.index({ deadline: 1 }); // For deadline-based queries
+taskSchema.index({ createdAt: 1 }); // For chronological ordering
 
 module.exports = mongoose.model('Task', taskSchema);

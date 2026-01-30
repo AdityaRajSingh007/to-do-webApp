@@ -204,27 +204,17 @@ export default function AuthForm() {
               )}
             </AnimatePresence>
 
-            <div className="pt-4 space-y-3">
-              <CyberpunkButton
-                type="submit"
-                disabled={isLoading}
-                isLoading={isLoading}
-              >
-                {mode === 'login'
-                  ? 'INITIALIZE_SESSION'
-                  : 'ACTIVATE_NEW_PROTOCOL'}
-              </CyberpunkButton>
-
-              <CyberpunkButton
-                type="button"
-                variant="secondary"
-                disabled={isLoading}
-                className="w-full"
-              >
-                <Chrome size={18} />
-                OAUTH_GOOGLE_LINK
-              </CyberpunkButton>
-            </div>
+             <div className="pt-4 space-y-3">
+               <CyberpunkButton
+                 type="submit"
+                 disabled={isLoading}
+                 isLoading={isLoading}
+               >
+                 {mode === 'login'
+                   ? 'INITIALIZE_SESSION'
+                   : 'ACTIVATE_NEW_PROTOCOL'}
+               </CyberpunkButton>
+             </div>
           </form>
         </CyberpunkPanel>
 

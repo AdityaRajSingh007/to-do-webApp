@@ -5,6 +5,7 @@ interface KanbanTaskCardProps {
   title: string;
   priority: 'HIGH' | 'MED' | 'LOW';
   index: number;
+  onClick?: (taskId: string) => void;
 }
 
 const priorityConfig = {
@@ -13,7 +14,7 @@ const priorityConfig = {
   LOW: { bg: 'bg-gray-500', text: 'text-white', border: 'border-l-gray-500' },
 };
 
-export default function KanbanTaskCard({ id, title, priority, index }: KanbanTaskCardProps) {
+export default function KanbanTaskCard({ id, title, priority, index, onClick }: KanbanTaskCardProps) {
   return (
     <Draggable draggableId={id} index={index}>
       {(provided, snapshot) => (
@@ -22,11 +23,12 @@ export default function KanbanTaskCard({ id, title, priority, index }: KanbanTas
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           className={`
-            bg-gray-900 border-l-4 transition-all duration-200
+            bg-gray-900 border-l-4 transition-all duration-200 cursor-pointer
             ${priorityConfig[priority].border}
             ${snapshot.isDragging ? 'opacity-50 rotate-1 shadow-lg shadow-green-500/30' : ''}
             hover:shadow-md hover:shadow-green-500/20 p-3 mb-2
           `}
+          onClick={() => onClick && onClick(id)}
         >
           <div className="text-xs text-gray-500 mb-2">
             {id}

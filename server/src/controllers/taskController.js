@@ -7,7 +7,16 @@ const moveTask = async (req, res) => {
   try {
     const { id } = req.params;  // task id
     const { boardId, status, position } = req.body;
-    const userId = req.user.uid;
+    const firebaseUserId = req.user.uid;
+
+    // Verify that the user exists and get the MongoDB user ID
+    const user = await User.findOne({ firebaseUid: firebaseUserId });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
 
     // Verify that the task exists and belongs to the user's board
     const task = await Task.findById(id);
@@ -19,19 +28,11 @@ const moveTask = async (req, res) => {
     }
 
     // Verify that the board exists and belongs to the user
-    const board = await Board.findById(boardId);
+    const board = await Board.findOne({ _id: boardId, userId: user._id });
     if (!board) {
       return res.status(404).json({
         success: false,
-        message: 'Board not found'
-      });
-    }
-
-    const user = await User.findOne({ firebaseUid: userId });
-    if (!user || board.userId.toString() !== user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied. Board does not belong to user.'
+        message: 'Board not found or does not belong to user'
       });
     }
 
@@ -55,6 +56,13 @@ const moveTask = async (req, res) => {
     });
   } catch (error) {
     console.error('Move task error:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation Error',
+        error: error.message
+      });
+    }
     res.status(500).json({
       success: false,
       message: 'Server error while moving task',
@@ -66,23 +74,24 @@ const moveTask = async (req, res) => {
 // Create a new task
 const createTask = async (req, res) => {
   try {
-    const { boardId, title, description, status, priority, subtasks } = req.body;
-    const userId = req.user.uid;
+    const { boardId, title, description, status, priority, deadline, subtasks } = req.body;
+    const firebaseUserId = req.user.uid;
 
-    // Verify that the board exists and belongs to the user
-    const board = await Board.findById(boardId);
-    if (!board) {
+    // Verify that the user exists and get the MongoDB user ID
+    const user = await User.findOne({ firebaseUid: firebaseUserId });
+    if (!user) {
       return res.status(404).json({
         success: false,
-        message: 'Board not found'
+        message: 'User not found'
       });
     }
 
-    const user = await User.findOne({ firebaseUid: userId });
-    if (!user || board.userId.toString() !== user._id.toString()) {
-      return res.status(403).json({
+    // Verify that the board exists and belongs to the user
+    const board = await Board.findOne({ _id: boardId, userId: user._id });
+    if (!board) {
+      return res.status(404).json({
         success: false,
-        message: 'Access denied. Board does not belong to user.'
+        message: 'Board not found or does not belong to user'
       });
     }
 
@@ -102,6 +111,7 @@ const createTask = async (req, res) => {
       description: description || '',
       status: status || 'PENDING',
       priority: priority || 'MED',
+      deadline: deadline || undefined,
       position: newPosition,
       subtasks: subtasks || []
     });
@@ -127,8 +137,17 @@ const createTask = async (req, res) => {
 const updateTask = async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, description, status, priority, subtasks } = req.body;
-    const userId = req.user.uid;
+    const { title, description, status, priority, deadline, subtasks } = req.body;
+    const firebaseUserId = req.user.uid;
+
+    // Verify that the user exists and get the MongoDB user ID
+    const user = await User.findOne({ firebaseUid: firebaseUserId });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
 
     // Verify that the task exists and belongs to the user's board
     const task = await Task.findById(id);
@@ -140,19 +159,11 @@ const updateTask = async (req, res) => {
     }
 
     // Verify that the board belongs to the user
-    const board = await Board.findById(task.boardId);
+    const board = await Board.findOne({ _id: task.boardId, userId: user._id });
     if (!board) {
       return res.status(404).json({
         success: false,
-        message: 'Board not found'
-      });
-    }
-
-    const user = await User.findOne({ firebaseUid: userId });
-    if (!user || board.userId.toString() !== user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied. Task does not belong to user.'
+        message: 'Board not found or does not belong to user'
       });
     }
 
@@ -164,6 +175,7 @@ const updateTask = async (req, res) => {
         ...(description !== undefined && { description }),
         ...(status && { status }),
         ...(priority && { priority }),
+        ...(deadline !== undefined && { deadline }),
         ...(subtasks !== undefined && { subtasks })
       },
       { 
@@ -187,11 +199,20 @@ const updateTask = async (req, res) => {
   }
 };
 
-// Delete a task
-const deleteTask = async (req, res) => {
+// Get a single task by ID
+const getTaskById = async (req, res) => {
   try {
     const { id } = req.params;
-    const userId = req.user.uid;
+    const firebaseUserId = req.user.uid;
+
+    // Verify that the user exists and get the MongoDB user ID
+    const user = await User.findOne({ firebaseUid: firebaseUserId });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
 
     // Verify that the task exists and belongs to the user's board
     const task = await Task.findById(id);
@@ -203,19 +224,58 @@ const deleteTask = async (req, res) => {
     }
 
     // Verify that the board belongs to the user
-    const board = await Board.findById(task.boardId);
+    const board = await Board.findOne({ _id: task.boardId, userId: user._id });
     if (!board) {
       return res.status(404).json({
         success: false,
-        message: 'Board not found'
+        message: 'Board not found or does not belong to user'
       });
     }
 
-    const user = await User.findOne({ firebaseUid: userId });
-    if (!user || board.userId.toString() !== user._id.toString()) {
-      return res.status(403).json({
+    res.status(200).json({
+      success: true,
+      task: task
+    });
+  } catch (error) {
+    console.error('Get task error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error while fetching task',
+      error: error.message
+    });
+  }
+};
+
+// Delete a task
+const deleteTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const firebaseUserId = req.user.uid;
+
+    // Verify that the user exists and get the MongoDB user ID
+    const user = await User.findOne({ firebaseUid: firebaseUserId });
+    if (!user) {
+      return res.status(404).json({
         success: false,
-        message: 'Access denied. Task does not belong to user.'
+        message: 'User not found'
+      });
+    }
+
+    // Verify that the task exists and belongs to the user's board
+    const task = await Task.findById(id);
+    if (!task) {
+      return res.status(404).json({
+        success: false,
+        message: 'Task not found'
+      });
+    }
+
+    // Verify that the board belongs to the user
+    const board = await Board.findOne({ _id: task.boardId, userId: user._id });
+    if (!board) {
+      return res.status(404).json({
+        success: false,
+        message: 'Board not found or does not belong to user'
       });
     }
 
@@ -240,5 +300,6 @@ module.exports = {
   moveTask,
   createTask,
   updateTask,
-  deleteTask
+  deleteTask,
+  getTaskById
 };

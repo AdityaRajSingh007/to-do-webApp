@@ -4,12 +4,28 @@ import { moveTask } from '../services/api';
 export const useKanbanLogic = (initialTasks) => {
   const [tasks, setTasks] = useState(initialTasks);
 
-  // Calculate fractional index between two positions
+  // Calculate fractional index between two positions with precision handling
   const calculateFractionalIndex = (prevPos, nextPos) => {
     if (prevPos === null && nextPos === null) return 1000; // First item
-    if (prevPos === null) return nextPos / 2; // Top of list
-    if (nextPos === null) return prevPos + 1000; // Bottom of list
-    return (prevPos + nextPos) / 2; // Between items
+    if (prevPos === null) {
+      // Top of list - ensure position is smaller than next position
+      const calculated = nextPos / 2;
+      // If the calculated position equals nextPos (precision issue), adjust it
+      return calculated >= nextPos ? nextPos - 1 : calculated;
+    }
+    if (nextPos === null) {
+      // Bottom of list - ensure position is larger than prev position
+      return prevPos + 1000;
+    }
+    
+    // Between items - calculate midpoint
+    const calculated = (prevPos + nextPos) / 2;
+    // Handle precision errors where calculated value equals one of the bounds
+    if (calculated <= prevPos || calculated >= nextPos) {
+      // If we can't find a midpoint due to precision limits, return a position closer to the previous
+      return prevPos + (nextPos - prevPos) / 2;
+    }
+    return calculated;
   };
 
   // Handle drag end event
@@ -37,7 +53,10 @@ export const useKanbanLogic = (initialTasks) => {
     
     // Calculate new position
     let newPosition;
-    if (destination.index === 0) {
+    if (destinationTasks.length === 0) {
+      // If destination column is empty, place at the beginning with position 1000
+      newPosition = 1000;
+    } else if (destination.index === 0) {
       // Moving to top
       const nextTask = destinationTasks[0];
       newPosition = nextTask 
@@ -90,7 +109,7 @@ export const useKanbanLogic = (initialTasks) => {
   // Helper to find task by ID
   const findTaskById = (id) => {
     for (const status in tasks) {
-      const task = tasks[status]?.find(t => t._id === id);
+      const task = tasks[status]?.find(t => t._id === id || t.id === id);
       if (task) return task;
     }
     return null;

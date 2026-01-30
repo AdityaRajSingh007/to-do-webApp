@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X } from 'lucide-react';
+import { X, Save } from 'lucide-react';
+import { getTaskById, updateTask, deleteTask } from '@/src/services/api';
 
 interface SubTask {
   id: string;
@@ -17,34 +18,112 @@ interface TaskDetailsModalProps {
   taskTitle?: string;
   taskDescription?: string;
   taskPriority?: 'LOW' | 'MED' | 'CRIT';
-  taskDueDate?: string;
+  taskDeadline?: string;
   taskSubtasks?: SubTask[];
+  onTaskUpdate?: () => void; // Callback to refresh board after task update
 }
 
 export default function TaskDetailsModal({
   isOpen,
   onClose,
-  taskId = 'TSK-3920',
-  taskTitle = 'Implement Core Module',
-  taskDescription = 'Deploy the primary system architecture and initialize runtime protocols.',
-  taskPriority = 'MED',
-  taskDueDate = '2025-02-15',
-  taskSubtasks = [
-    { id: '1', title: 'Initialize database connection', completed: true },
-    { id: '2', title: 'Configure authentication layer', completed: true },
-    { id: '3', title: 'Set up API endpoints', completed: false },
-    { id: '4', title: 'Implement error handling', completed: false },
-  ],
+  taskId,
+  taskTitle,
+  taskDescription,
+  taskPriority,
+  taskDeadline,
+  taskSubtasks,
+  onTaskUpdate,
 }: TaskDetailsModalProps) {
-  const [title, setTitle] = useState(taskTitle);
-  const [description, setDescription] = useState(taskDescription);
-  const [priority, setPriority] = useState(taskPriority);
-  const [subtasks, setSubtasks] = useState(taskSubtasks);
+  const [title, setTitle] = useState(taskTitle || '');
+  const [description, setDescription] = useState(taskDescription || '');
+  const [priority, setPriority] = useState(taskPriority || 'MED');
+  const [subtasks, setSubtasks] = useState<SubTask[]>(taskSubtasks || []);
+  const [deadline, setDeadline] = useState(taskDeadline || '');
+  const [loading, setLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
+  const [originalData, setOriginalData] = useState({}); // Track original data to detect changes
+
+  // Fetch task details when modal opens and taskId is provided
+  useEffect(() => {
+    if (isOpen && taskId) {
+      const fetchTaskDetails = async () => {
+        try {
+          setLoading(true);
+          const response = await getTaskById(taskId);
+          const task = response.data.task;
+          
+          // Map the subtasks from the API response to match our interface
+          const mappedSubtasks: SubTask[] = task.subtasks?.map((st: any) => ({
+            id: st._id || st.id || Math.random().toString(36).substr(2, 9),
+            title: st.title,
+            completed: st.isCompleted || st.completed || false
+          })) || [];
+
+          setTitle(task.title);
+          setDescription(task.description);
+          setPriority(task.priority);
+          setSubtasks(mappedSubtasks);
+          
+          // Set the deadline if provided in the task or fallback to prop
+          setDeadline(task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : taskDeadline || '');
+          
+          // Store original data to detect changes
+          setOriginalData({
+            title: task.title,
+            description: task.description,
+            priority: task.priority,
+            subtasks: mappedSubtasks,
+            deadline: task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : taskDeadline || ''
+          });
+        } catch (error) {
+          console.error('Error fetching task details:', error);
+          // Fallback to props if API call fails
+          setTitle(taskTitle || '');
+          setDescription(taskDescription || '');
+          setPriority(taskPriority || 'MED');
+          setSubtasks(taskSubtasks || []);
+          setDeadline(taskDeadline || '');
+          
+          // Store original data to detect changes
+          setOriginalData({
+            title: taskTitle || '',
+            description: taskDescription || '',
+            priority: taskPriority || 'MED',
+            subtasks: taskSubtasks || [],
+            deadline: taskDeadline || ''
+          });
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchTaskDetails();
+    } else if (isOpen) {
+      // If no taskId is provided, use the passed props directly
+      setTitle(taskTitle || '');
+      setDescription(taskDescription || '');
+      setPriority(taskPriority || 'MED');
+      setSubtasks(taskSubtasks || []);
+      setDeadline(taskDeadline || '');
+      
+      // Store original data to detect changes
+      setOriginalData({
+        title: taskTitle || '',
+        description: taskDescription || '',
+        priority: taskPriority || 'MED',
+        subtasks: taskSubtasks || [],
+        deadline: taskDeadline || ''
+      });
+      
+      setLoading(false);
+    }
+  }, [isOpen, taskId, taskTitle, taskDescription, taskPriority, taskSubtasks, taskDeadline]);
 
   const completedCount = subtasks.filter((s) => s.completed).length;
-  const completionPercent = (completedCount / subtasks.length) * 100;
+  const completionPercent = subtasks.length > 0 ? (completedCount / subtasks.length) * 100 : 0;
 
   const handleToggleSubtask = (id: string) => {
     setSubtasks(
@@ -54,20 +133,68 @@ export default function TaskDetailsModal({
     );
   };
 
-  const handleDelete = async () => {
-    setIsDeleting(true);
-    setTimeout(() => {
-      onClose();
-      setIsDeleting(false);
-      setShowDeleteConfirm(false);
-    }, 600);
+  // Handle saving updated task data
+  const saveTaskUpdates = async () => {
+    if (!taskId) return;
+    
+    setIsSaving(true);
+    try {
+      // Convert subtasks back to the format expected by the API
+      const apiSubtasks = subtasks.map(st => ({
+        title: st.title,
+        isCompleted: st.completed
+      }));
+      
+      await updateTask(taskId, {
+        title,
+        description,
+        priority,
+        deadline: deadline || undefined,
+        subtasks: apiSubtasks
+      });
+      
+      // Update last saved time
+      setLastSaved(new Date().toLocaleTimeString());
+      
+      // Call the callback to refresh the board
+      if (onTaskUpdate) {
+        onTaskUpdate();
+      }
+    } catch (error) {
+      console.error('Error updating task:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  // Calculate days until due date
+  // Handle manual save button click
+  const handleManualSave = async () => {
+    await saveTaskUpdates();
+  };
+
+  const handleDelete = async () => {
+    if (!taskId) return;
+    
+    setIsDeleting(true);
+    try {
+      await deleteTask(taskId);
+      onClose();
+    } catch (error) {
+      console.error('Error deleting task:', error);
+      // Still close the modal even if there's an error to allow user to try again
+    } finally {
+      setIsDeleting(false);
+      setShowDeleteConfirm(false);
+    }
+  };
+
+  // Calculate days until deadline
   const daysUntilDue = () => {
+    if (!deadline) return 0; // Return 0 if no deadline is set
+    
     const today = new Date();
-    const dueDate = new Date(taskDueDate || '2025-02-15');
-    const diffTime = dueDate.getTime() - today.getTime();
+    const actualDeadline = new Date(deadline);
+    const diffTime = actualDeadline.getTime() - today.getTime();
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
     return diffDays;
   };
@@ -119,26 +246,39 @@ export default function TaskDetailsModal({
                   <div className="flex-1 px-6 py-6 space-y-6 overflow-y-auto scrollbar-thin scrollbar-thumb-primary scrollbar-track-input">
                     {/* Title */}
                     <div className="space-y-2">
-                      <input
-                        type="text"
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        className="w-full text-2xl font-bold text-primary bg-transparent border-0 focus:outline-none p-0 font-mono"
-                      />
+                       <input
+                         type="text"
+                         value={title}
+                         onChange={(e) => setTitle(e.target.value)}
+                         className="w-full text-2xl font-bold text-primary bg-transparent border-0 focus:outline-none p-0 font-mono"
+                       />
                     </div>
 
-                    {/* Description */}
-                    <div className="space-y-2">
-                      <label className="text-xs font-mono text-muted-foreground">
-                        &gt; DATA_LOG:
-                      </label>
-                      <textarea
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        className="w-full min-h-32 px-4 py-3 bg-input border-[1px] border-muted text-foreground font-mono text-sm focus:outline-none focus:border-primary transition-colors resize-none"
-                        placeholder="Enter task details..."
-                      />
-                    </div>
+                     {/* Description */}
+                     <div className="space-y-2">
+                       <label className="text-xs font-mono text-muted-foreground">
+                         {'>'} DATA_LOG:
+                       </label>
+                        <textarea
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          className="w-full min-h-32 px-4 py-3 bg-input border-[1px] border-muted text-foreground font-mono text-sm focus:outline-none focus:border-primary transition-colors resize-none"
+                          placeholder="Enter task details..."
+                        />
+                     </div>
+
+                     {/* Deadline */}
+                     <div className="space-y-2">
+                       <label className="text-xs font-mono text-muted-foreground">
+                         {'>'} DEADLINE:
+                       </label>
+                       <input
+                         type="date"
+                         value={deadline}
+                         onChange={(e) => setDeadline(e.target.value)}
+                         className="w-full px-4 py-2 bg-input border-[1px] border-muted text-foreground font-mono text-sm focus:outline-none focus:border-primary transition-colors"
+                       />
+                     </div>
 
                     {/* Checklist */}
                     <div className="space-y-3">
@@ -198,7 +338,7 @@ export default function TaskDetailsModal({
                         {(['LOW', 'MED', 'CRIT'] as const).map((p) => (
                           <button
                             key={p}
-                            onClick={() => setPriority(p)}
+                             onClick={() => setPriority(p)}
                             className={`w-full px-3 py-2 font-mono text-xs border-[1px] transition-all ${
                               priority === p
                                 ? 'border-primary bg-primary/20 text-primary'
@@ -215,15 +355,41 @@ export default function TaskDetailsModal({
 
                     {/* Due Date */}
                     <div className="space-y-2">
-                      <div className="text-xs font-mono text-muted-foreground">
-                        DUE_DATE:
-                      </div>
-                      <div className="text-sm font-mono text-primary">
-                        T-MINUS {daysUntilDue()} DAYS
-                      </div>
-                      <div className="text-xs font-mono text-muted-foreground">
-                        {new Date(taskDueDate || '2025-02-15').toLocaleDateString()}
-                      </div>
+                       <div className="text-xs font-mono text-muted-foreground">
+                         DUE_DATE:
+                       </div>
+                       <div className="text-sm font-mono text-primary">
+                         {deadline ? `T-MINUS ${daysUntilDue()} DAYS` : 'NO DEADLINE SET'}
+                       </div>
+                       <div className="text-xs font-mono text-muted-foreground">
+                         {deadline ? new Date(deadline).toLocaleDateString() : 'NOT SET'}
+                       </div>
+                    </div>
+
+                    {/* Save Button */}
+                    <div className="space-y-2">
+                      <motion.button
+                        onClick={handleManualSave}
+                        disabled={isSaving}
+                        whileHover={{ scale: 1.02 }}
+                        whileTap={{ scale: 0.98 }}
+                        className="w-full py-2 px-3 font-mono text-xs border-[1px] border-primary text-primary bg-primary/10 hover:bg-primary/20 transition-colors flex items-center justify-center gap-2"
+                      >
+                        {isSaving ? (
+                          <span>SAVING...</span>
+                        ) : (
+                          <>
+                            <Save size={12} />
+                            [ SAVE CHANGES ]
+                          </>
+                        )}
+                      </motion.button>
+                      
+                      {lastSaved && (
+                        <div className="text-xs font-mono text-muted-foreground text-center">
+                          Last saved: {lastSaved}
+                        </div>
+                      )}
                     </div>
 
                     {/* Delete Button */}

@@ -5,7 +5,8 @@ const syncAuth = async (req, res) => {
   try {
     const { uid, email } = req.user;
 
-    // Find or create user in MongoDB based on Firebase UID
+    // Use findOneAndUpdate with upsert option to ensure atomic operation
+    // This prevents race conditions where multiple requests could create duplicate users
     const user = await User.findOneAndUpdate(
       { firebaseUid: uid },
       { 
@@ -31,6 +32,13 @@ const syncAuth = async (req, res) => {
     });
   } catch (error) {
     console.error('Auth sync error:', error);
+    // Handle duplicate key errors specifically
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'User already exists with different credentials'
+      });
+    }
     res.status(500).json({
       success: false,
       message: 'Server error during authentication sync',

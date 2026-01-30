@@ -8,6 +8,9 @@ const authRoutes = require('./src/routes/authRoutes');
 const boardRoutes = require('./src/routes/boardRoutes');
 const taskRoutes = require('./src/routes/taskRoutes');
 
+// Import error handler middleware
+const errorHandler = require('./src/middleware/errorHandler');
+
 const app = express();
 
 // Connect to MongoDB
@@ -15,7 +18,20 @@ connectDB();
 
 // Middleware
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: function (origin, callback) {
+    // In development, allow localhost from both common ports
+    const allowedOrigins = [
+      'http://localhost:3000',  // Next.js default
+      'http://localhost:5173',  // Vite default
+      process.env.CLIENT_URL      // Production URL
+    ].filter(Boolean); // Remove undefined values
+    
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true
 }));
 app.use(express.json({ limit: '10mb' }));
@@ -43,15 +59,8 @@ app.use('*', (req, res) => {
   });
 });
 
-// Global error handler
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({
-    success: false,
-    message: 'Something went wrong!',
-    error: process.env.NODE_ENV === 'development' ? err.message : {}
-  });
-});
+// Global error handler - should be placed after all routes
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 5000;
 

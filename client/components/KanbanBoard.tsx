@@ -101,87 +101,88 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
   };
 
   // Fetch board data when component mounts or boardId changes
-  useEffect(() => {
-    const loadBoardData = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const response = await fetchBoardDetails(boardId);
-        const boardData: BoardApiResponse = response.data;
+  const loadBoardData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const response = await fetchBoardDetails(boardId);
+      const boardData: BoardApiResponse = response.data;
 
-        if (!boardData.success) {
-          throw new Error(boardData.message || 'Failed to load board data');
-        }
-
-        // Transform the tasks into the format expected by the UI
-        const transformedColumns = {
-          pending: {
-            id: 'PENDING',
-            title: 'PENDING_EXECUTION',
-            borderColor: 'border-gray-500',
-            tasks: (boardData.tasks.PENDING || []).map(task => ({
-              id: task._id,
-              title: task.title,
-              priority: mapPriority(task.priority),
-            })),
-          },
-          processing: {
-            id: 'IN_PROGRESS',
-            title: 'PROCESSING_NODE',
-            borderColor: 'border-cyan-400',
-            tasks: (boardData.tasks.IN_PROGRESS || []).map(task => ({
-              id: task._id,
-              title: task.title,
-              priority: mapPriority(task.priority),
-            })),
-          },
-          completed: {
-            id: 'DONE',
-            title: 'COMPLETED_LOGS',
-            borderColor: 'border-green-400',
-            tasks: (boardData.tasks.DONE || []).map(task => ({
-              id: task._id,
-              title: task.title,
-              priority: mapPriority(task.priority),
-            })),
-          },
-        };
-
-        setColumns(transformedColumns);
-        
-        // Create a mapping of task IDs to backend task objects for drag/drop operations
-        const allBackendTasks: Record<string, BoardTask> = {};
-        
-        // Combine all tasks from all statuses to create the mapping
-        const allTasks = [
-          ...(boardData.tasks.PENDING || []),
-          ...(boardData.tasks.IN_PROGRESS || []),
-          ...(boardData.tasks.DONE || [])
-        ];
-        
-        allTasks.forEach(task => {
-          allBackendTasks[task._id] = task;
-        });
-        
-        setBackendTasks(allBackendTasks);
-      } catch (err) {
-        console.error('Error loading board data:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load board data');
-        toast({
-          title: 'Error',
-          description: 'Failed to load board data. Please try again.',
-          variant: 'destructive',
-        });
-      } finally {
-        setLoading(false);
+      if (!boardData.success) {
+        throw new Error(boardData.message || 'Failed to load board data');
       }
-    };
 
+      // Transform the tasks into the format expected by the UI
+      const transformedColumns = {
+        pending: {
+          id: 'PENDING',
+          title: 'PENDING_EXECUTION',
+          borderColor: 'border-gray-500',
+          tasks: (boardData.tasks.PENDING || []).map(task => ({
+            id: task._id,
+            title: task.title,
+            priority: mapPriority(task.priority),
+          })),
+        },
+        processing: {
+          id: 'IN_PROGRESS',
+          title: 'PROCESSING_NODE',
+          borderColor: 'border-cyan-400',
+          tasks: (boardData.tasks.IN_PROGRESS || []).map(task => ({
+            id: task._id,
+            title: task.title,
+            priority: mapPriority(task.priority),
+          })),
+        },
+        completed: {
+          id: 'DONE',
+          title: 'COMPLETED_LOGS',
+          borderColor: 'border-green-400',
+          tasks: (boardData.tasks.DONE || []).map(task => ({
+            id: task._id,
+            title: task.title,
+            priority: mapPriority(task.priority),
+          })),
+        },
+      };
+
+      setColumns(transformedColumns);
+      
+      // Create a mapping of task IDs to backend task objects for drag/drop operations
+      const allBackendTasks: Record<string, BoardTask> = {};
+      
+      // Combine all tasks from all statuses to create the mapping
+      const allTasks = [
+        ...(boardData.tasks.PENDING || []),
+        ...(boardData.tasks.IN_PROGRESS || []),
+        ...(boardData.tasks.DONE || [])
+      ];
+      
+      allTasks.forEach(task => {
+        allBackendTasks[task._id] = task;
+      });
+      
+      setBackendTasks(allBackendTasks);
+    } catch (err) {
+      console.error('Error loading board data:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load board data');
+      toast({
+        title: 'Error',
+        description: 'Failed to load board data. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [boardId, toast]);
+
+  // Fetch board data when component mounts or boardId changes
+  useEffect(() => {
     if (boardId) {
       loadBoardData();
     }
-  }, [boardId, toast]);
+  }, [boardId, loadBoardData]);
 
   // For proper drag and drop functionality, we need to maintain both frontend and backend task data
   // Let's store backend tasks separately to access their properties like position
@@ -221,72 +222,91 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
     // Get the corresponding backend task to access its position
     const currentBackendTask = backendTasks[draggableId];
     
-    if (destination.index === 0) {
-      // Moving to top of column
-      if (destinationColumnTasks.length > 0) {
-        // Position before the first task
-        const nextTaskId = destinationColumnTasks[0].id;
-        const nextBackendTask = backendTasks[nextTaskId];
-        // Use the backend task's position for calculation
-        const nextPos = nextBackendTask?.position || 1000;
-        newPosition = nextPos / 2; // Place halfway before the next task
-      } else {
-        // First task in an empty column
-        newPosition = 1000; // Default first position
-      }
-    } else if (destination.index === destinationColumnTasks.length) {
-      // Moving to bottom of column
-      if (destinationColumnTasks.length > 0) {
-        // Position after the last task
-        const lastTaskId = destinationColumnTasks[destinationColumnTasks.length - 1].id;
-        const lastBackendTask = backendTasks[lastTaskId];
-        // Use the backend task's position for calculation
-        const lastPos = lastBackendTask?.position || 1000;
-        newPosition = lastPos + 1000; // Place after the last task
-      } else {
-        // First task in an empty column
-        newPosition = 1000; // Default first position
-      }
-    } else {
-      // Moving between tasks
-      const prevTaskId = destinationColumnTasks[destination.index - 1].id;
-      const nextTaskId = destinationColumnTasks[destination.index].id;
-      const prevBackendTask = backendTasks[prevTaskId];
-      const nextBackendTask = backendTasks[nextTaskId];
-      
-      // Calculate midpoint position using backend task positions
-      const prevPos = prevBackendTask?.position || 1000;
-      const nextPos = nextBackendTask?.position || 2000;
-      newPosition = (prevPos + nextPos) / 2; // Place between the tasks
-    }
+     if (destination.index === 0) {
+       // Moving to top of column
+       if (destinationColumnTasks.length > 0) {
+         // Position before the first task
+         const nextTask = destinationColumnTasks[0];
+         if (nextTask && nextTask.id) {
+           const nextTaskId = nextTask.id;
+           const nextBackendTask = backendTasks[nextTaskId];
+           // Use the backend task's position for calculation
+           const nextPos = nextBackendTask?.position || 1000;
+           newPosition = nextPos / 2; // Place halfway before the next task
+         } else {
+           newPosition = 1000; // Default position if next task is invalid
+         }
+       } else {
+         // First task in an empty column
+         newPosition = 1000; // Default first position
+       }
+     } else if (destination.index === destinationColumnTasks.length) {
+       // Moving to bottom of column
+       if (destinationColumnTasks.length > 0) {
+         // Position after the last task
+         const lastTask = destinationColumnTasks[destinationColumnTasks.length - 1];
+         if (lastTask && lastTask.id) {
+           const lastTaskId = lastTask.id;
+           const lastBackendTask = backendTasks[lastTaskId];
+           // Use the backend task's position for calculation
+           const lastPos = lastBackendTask?.position || 1000;
+           newPosition = lastPos + 1000; // Place after the last task
+         } else {
+           newPosition = 1000; // Default position if last task is invalid
+         }
+       } else {
+         // First task in an empty column
+         newPosition = 1000; // Default first position
+       }
+     } else {
+       // Moving between tasks
+       const prevTask = destinationColumnTasks[destination.index - 1];
+       const nextTask = destinationColumnTasks[destination.index];
+       
+       if (prevTask && prevTask.id && nextTask && nextTask.id) {
+         const prevTaskId = prevTask.id;
+         const nextTaskId = nextTask.id;
+         const prevBackendTask = backendTasks[prevTaskId];
+         const nextBackendTask = backendTasks[nextTaskId];
+         
+         // Calculate midpoint position using backend task positions
+         const prevPos = prevBackendTask?.position || 1000;
+         const nextPos = nextBackendTask?.position || 2000;
+         newPosition = (prevPos + nextPos) / 2; // Place between the tasks
+       } else {
+         // Fallback position calculation
+         newPosition = 1000 + destination.index * 1000;
+       }
+     }
 
     // Make the API call to move the task
     try {
       await moveTask(draggableId, boardId, newStatus, newPosition);
 
-      // Optimistically update the UI
-      const newColumns = { ...columns };
+       // Optimistically update the UI
+       const newColumns = { ...columns };
 
-      // Find source column and task
-      let sourceColKey: string | undefined;
-      for (const [key, col] of Object.entries(columns)) {
-        if (col.tasks.some(t => t.id === draggableId)) {
-          sourceColKey = key;
-          break;
-        }
-      }
+        // Map the status to the correct column key
+        const getStatusColumnKey = (status: string) => {
+          switch(status) {
+            case 'PENDING': return 'pending';
+            case 'IN_PROGRESS': return 'processing';
+            case 'DONE': return 'completed';
+            default: return 'pending';
+          }
+        };
+        
+        const sourceColKey = getStatusColumnKey(source.droppableId);
+        const destColKey = getStatusColumnKey(destination.droppableId);
 
-      if (sourceColKey) {
-        // Remove from source
-        const sourceCol = newColumns[sourceColKey];
-        const [movedTask] = sourceCol.tasks.splice(source.index, 1);
+       // Remove from source and add to destination
+       const sourceCol = newColumns[sourceColKey];
+       const [movedTask] = sourceCol.tasks.splice(source.index, 1);
 
-        // Add to destination
-        const destCol = newColumns[destination.droppableId];
-        destCol.tasks.splice(destination.index, 0, movedTask);
+       const destCol = newColumns[destColKey];
+       destCol.tasks.splice(destination.index, 0, movedTask);
 
-        setColumns(newColumns);
-      }
+       setColumns(newColumns);
 
       toast({
         title: 'Success',
@@ -496,6 +516,7 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
         isOpen={showTaskDetailsModal}
         onClose={() => setShowTaskDetailsModal(false)}
         taskId={selectedTaskId || undefined}
+        onTaskUpdate={loadBoardData} // Refresh the board data when a task is updated
       />
     </div>
   );

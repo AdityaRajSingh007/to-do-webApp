@@ -38,9 +38,9 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className={`font-sans antialiased dark`}>
-        <ThemeProvider attribute="class" defaultTheme="dark">
+    <html lang="en">
+      <body className={`font-sans antialiased`}>
+        <ThemeProvider>
           <AuthProvider>
             {children}
           </AuthProvider>
