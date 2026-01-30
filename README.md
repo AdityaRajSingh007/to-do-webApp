@@ -177,7 +177,7 @@
    Terminal 2 (Client):
    ```bash
    cd client
-   pnpm dev
+   npm run dev
    ```
 
 5. **Access the application**
