@@ -128,7 +128,7 @@
    ```bash
    # Install client dependencies
    cd client
-   pnpm install
+   npm install --legacy-peer-deps
    
    # Install server dependencies
    cd ../server
