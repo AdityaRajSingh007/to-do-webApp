@@ -67,30 +67,11 @@
 
 ## 📊 Architecture Overview
 
-```mermaid
-graph TB
-    A[Client - Next.js] --> B[Firebase Auth]
-    A --> C[REST API - Express]
-    B --> D[MongoDB]
-    C --> D
-    E[Browser Storage] --> A
-    
-    subgraph "Client"
-        A
-        E
-    end
-    
-    subgraph "Server"
-        C
-        B
-        D
-    end
-    
-    style A fill:#00ff9d,stroke:#00b36b,stroke-width:2px,color:#000
-    style B fill:#ff6b00,stroke:#cc5600,stroke-width:2px,color:#fff
-    style C fill:#4f46e5,stroke:#3730a3,stroke-width:2px,color:#fff
-    style D fill:#0ea5e9,stroke:#0284c7,stroke-width:2px,color:#fff
-```
+<div align="center">
+  
+![Architecture Diagram](screenshots/architecture.png)
+
+</div>
 
 ## 🏗️ Project Structure
 
