@@ -8,7 +8,7 @@ import { useState } from 'react';
 interface CreateBoardModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (boardName: string) => void;
+  onSubmit: (boardName: string) => Promise<void>; // Updated to async function
 }
 
 export default function CreateBoardModal({
@@ -27,14 +27,18 @@ export default function CreateBoardModal({
     }
 
     setIsSubmitting(true);
-    // Simulate API call
-    setTimeout(() => {
-      onSubmit(boardName);
+    setError('');
+    
+    try {
+      await onSubmit(boardName);
       setBoardName('');
-      setError('');
-      setIsSubmitting(false);
       onClose();
-    }, 800);
+    } catch (err) {
+      setError('ERROR: FAILED_TO_CREATE');
+      console.error('Error creating board:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {

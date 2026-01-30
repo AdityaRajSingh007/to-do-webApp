@@ -6,7 +6,7 @@ import KanbanColumn from './KanbanColumn';
 import CreateTaskModal from './CreateTaskModal';
 import TaskDetailsModal from './TaskDetailsModal';
 import { Trash2, Plus } from 'lucide-react';
-import { fetchBoardDetails, moveTask, createTask } from '@/src/services/api';
+import { fetchBoardDetails, moveTask, createTask, deleteBoard } from '@/src/services/api';
 import { useToast } from '@/hooks/use-toast';
 
 interface BoardTask {
@@ -149,6 +149,22 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
         };
 
         setColumns(transformedColumns);
+        
+        // Create a mapping of task IDs to backend task objects for drag/drop operations
+        const allBackendTasks: Record<string, BoardTask> = {};
+        
+        // Combine all tasks from all statuses to create the mapping
+        const allTasks = [
+          ...(boardData.tasks.PENDING || []),
+          ...(boardData.tasks.IN_PROGRESS || []),
+          ...(boardData.tasks.DONE || [])
+        ];
+        
+        allTasks.forEach(task => {
+          allBackendTasks[task._id] = task;
+        });
+        
+        setBackendTasks(allBackendTasks);
       } catch (err) {
         console.error('Error loading board data:', err);
         setError(err instanceof Error ? err.message : 'Failed to load board data');
@@ -170,21 +186,6 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
   // For proper drag and drop functionality, we need to maintain both frontend and backend task data
   // Let's store backend tasks separately to access their properties like position
   const [backendTasks, setBackendTasks] = useState<Record<string, BoardTask>>({});
-
-  // Update backend tasks when board data loads
-  useEffect(() => {
-    const allBackendTasks: Record<string, BoardTask> = {};
-    
-    // Combine all tasks from all statuses
-    Object.values(columns).forEach(column => {
-      column.tasks.forEach(frontendTask => {
-        // We need to map frontend task ID to backend task data
-        // For this, we'll need to store the original backend data when loading
-      });
-    });
-    
-    // This is a simplified approach - in a real app, we'd need to store the original backend data
-  }, [columns]);
 
   const handleDragEnd = async (result: DropResult) => {
     const { source, destination, draggableId } = result;
@@ -211,9 +212,53 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
         newStatus = 'PENDING';
     }
 
-    // Calculate new position based on drag position
-    // For simplicity, we'll use basic position calculations
+    // Calculate new position based on drag position using fractional indexing
     let newPosition = 0;
+    
+    // Get the tasks in the destination column
+    const destinationColumnTasks = columns[destination.droppableId]?.tasks || [];
+    
+    // Get the corresponding backend task to access its position
+    const currentBackendTask = backendTasks[draggableId];
+    
+    if (destination.index === 0) {
+      // Moving to top of column
+      if (destinationColumnTasks.length > 0) {
+        // Position before the first task
+        const nextTaskId = destinationColumnTasks[0].id;
+        const nextBackendTask = backendTasks[nextTaskId];
+        // Use the backend task's position for calculation
+        const nextPos = nextBackendTask?.position || 1000;
+        newPosition = nextPos / 2; // Place halfway before the next task
+      } else {
+        // First task in an empty column
+        newPosition = 1000; // Default first position
+      }
+    } else if (destination.index === destinationColumnTasks.length) {
+      // Moving to bottom of column
+      if (destinationColumnTasks.length > 0) {
+        // Position after the last task
+        const lastTaskId = destinationColumnTasks[destinationColumnTasks.length - 1].id;
+        const lastBackendTask = backendTasks[lastTaskId];
+        // Use the backend task's position for calculation
+        const lastPos = lastBackendTask?.position || 1000;
+        newPosition = lastPos + 1000; // Place after the last task
+      } else {
+        // First task in an empty column
+        newPosition = 1000; // Default first position
+      }
+    } else {
+      // Moving between tasks
+      const prevTaskId = destinationColumnTasks[destination.index - 1].id;
+      const nextTaskId = destinationColumnTasks[destination.index].id;
+      const prevBackendTask = backendTasks[prevTaskId];
+      const nextBackendTask = backendTasks[nextTaskId];
+      
+      // Calculate midpoint position using backend task positions
+      const prevPos = prevBackendTask?.position || 1000;
+      const nextPos = nextBackendTask?.position || 2000;
+      newPosition = (prevPos + nextPos) / 2; // Place between the tasks
+    }
 
     // Make the API call to move the task
     try {
@@ -279,6 +324,7 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
         description: taskData.description,
         status: selectedColumn as 'PENDING' | 'IN_PROGRESS' | 'DONE',
         priority: taskData.priority,
+        deadline: taskData.deadline || undefined, // Pass deadline to the backend
         subtasks: formattedSubtasks,
         position: Date.now(), // Simple positioning for now
       });
@@ -331,6 +377,31 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
     setShowTaskDetailsModal(true);
   };
 
+  const handleDeleteBoard = async () => {
+    if (!window.confirm('Are you sure you want to delete this board and all its tasks? This action cannot be undone.')) {
+      return;
+    }
+    
+    try {
+      await deleteBoard(boardId);
+      toast({
+        title: 'Success',
+        description: 'Board deleted successfully',
+      });
+      // Call the parent's onDeleteBoard function to navigate away or update the UI
+      if (onDeleteBoard) {
+        onDeleteBoard();
+      }
+    } catch (error) {
+      console.error('Error deleting board:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete board. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col h-full bg-background">
@@ -339,7 +410,7 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
             {boardName}
           </h1>
           <button
-            onClick={onDeleteBoard}
+            onClick={handleDeleteBoard}
             className="flex items-center gap-2 border border-red-500 text-red-500 hover:bg-red-500 hover:text-black px-3 py-2 font-mono text-sm transition-all"
           >
             <Trash2 size={16} />
@@ -361,7 +432,7 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
             {boardName}
           </h1>
           <button
-            onClick={onDeleteBoard}
+            onClick={handleDeleteBoard}
             className="flex items-center gap-2 border border-red-500 text-red-500 hover:bg-red-500 hover:text-black px-3 py-2 font-mono text-sm transition-all"
           >
             <Trash2 size={16} />
@@ -383,7 +454,7 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
           {boardName}
         </h1>
         <button
-          onClick={onDeleteBoard}
+          onClick={handleDeleteBoard}
           className="flex items-center gap-2 border border-red-500 text-red-500 hover:bg-red-500 hover:text-black px-3 py-2 font-mono text-sm transition-all"
         >
           <Trash2 size={16} />
@@ -402,12 +473,10 @@ export default function KanbanBoard({ boardId, boardName = 'SECTOR_OMEGA', onDel
                 title={column.title}
                 borderColor={column.borderColor}
                 tasks={column.tasks}
-                onAddTask={(columnId: string, taskTitle: string) => {
-                  // For the modal, we only need the columnId, so we'll ignore the taskTitle
-                  // and open the modal instead of creating a task directly
-                  setSelectedColumn(columnId);
-                  setShowCreateTaskModal(true);
-                }}
+                 onAddTask={(columnId: string) => {
+                   setSelectedColumn(columnId);
+                   setShowCreateTaskModal(true);
+                 }}
                 onTaskClick={handleTaskClick}
               />
             ))}
