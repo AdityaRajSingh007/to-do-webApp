@@ -8,10 +8,7 @@ import DashboardMain from '@/components/DashboardMain';
 import KanbanBoard from '@/components/KanbanBoard';
 import CreateBoardModal from '@/components/CreateBoardModal';
 import OnboardingModal from '@/components/OnboardingModal';
-import MobileDrawer from '@/components/MobileDrawer';
-import { Menu } from 'lucide-react';
 import { fetchBoards, createBoard } from '@/src/services/api';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Board {
   _id: string;
@@ -25,12 +22,10 @@ export default function DashboardPage() {
   const router = useRouter();
   const { user, loading, showOnboarding, setShowOnboarding, completeOnboarding } = useAuth();
   const [showCreateBoardModal, setShowCreateBoardModal] = useState(false);
-  const [showMobileDrawer, setShowMobileDrawer] = useState(false);
   const [activeBoardId, setActiveBoardId] = useState<string | null>(null);
   const [activeBoardTitle, setActiveBoardTitle] = useState<string | null>(null);
   const [boards, setBoards] = useState<Board[]>([]);
   const [boardsLoading, setBoardsLoading] = useState(false);
-  const isMobile = useIsMobile();
 
   useEffect(() => {
     // If user is not authenticated and not loading, redirect to auth page
@@ -119,49 +114,22 @@ export default function DashboardPage() {
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
-      {/* Mobile Menu Button */}
-      {isMobile && (
-        <div className="fixed top-4 left-4 z-40">
-          <button
-            onClick={() => setShowMobileDrawer(true)}
-            className="p-2 text-primary bg-gray-800 border border-primary rounded hover:bg-gray-700 transition-colors"
-          >
-            <Menu size={20} />
-          </button>
-        </div>
-      )}
-
-      {/* Mobile Drawer */}
-      <MobileDrawer
-        isOpen={showMobileDrawer}
-        onClose={() => setShowMobileDrawer(false)}
-        onCreateSector={handleCreateSector}
+      <DashboardSidebar 
+        onCreateSector={handleCreateSector} 
         onBoardSelect={handleSelectBoard}
         boards={boards}
         activeBoardId={activeBoardId}
       />
-
-      {/* Desktop Sidebar - Hidden on mobile */}
-      {!isMobile && (
-        <DashboardSidebar 
-          onCreateSector={handleCreateSector} 
-          onBoardSelect={handleSelectBoard}
-          boards={boards}
-          activeBoardId={activeBoardId}
-        />
-      )}
       
-      <div className={`${isMobile ? 'ml-0' : 'ml-0 md:ml-64'} flex-1 transition-all duration-300`}>
-        {activeBoardId ? (
-          <KanbanBoard 
-            boardId={activeBoardId} 
-            boardName={activeBoardTitle || 'SECTOR_OMEGA'} 
-            onDeleteBoard={handleDeleteBoard} 
-          />
-        ) : (
-          <DashboardMain />
-        )}
-      </div>
+      {activeBoardId ? (
+        <KanbanBoard 
+          boardId={activeBoardId} 
+          boardName={activeBoardTitle || 'SECTOR_OMEGA'} 
+          onDeleteBoard={handleDeleteBoard} 
+        />
+      ) : (
+        <DashboardMain />
+      )}
 
       <CreateBoardModal
         isOpen={showCreateBoardModal}

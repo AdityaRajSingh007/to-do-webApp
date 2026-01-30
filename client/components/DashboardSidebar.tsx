@@ -41,7 +41,7 @@ export default function DashboardSidebar({
       initial={{ x: -300, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
       transition={{ duration: 0.6, ease: 'easeOut' }}
-      className="w-64 md:w-64 border-r border-primary/30 bg-card p-6 flex flex-col gap-8 h-screen"
+      className="w-64 border-r border-primary/30 bg-card p-6 flex flex-col gap-8 h-screen"
     >
       {/* Header */}
       <div className="space-y-2">
